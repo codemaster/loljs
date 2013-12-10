@@ -1,0 +1,15 @@
+{
+	"name" : "LoLjs",
+	"author" : "Andrew 'Codemaster' Kane <andrew@andrewmkane.com>",
+	"description" : "A library for fetching League of Legends data from the Riot API in node.js",
+	"url" : "https://github.com/codemaster/LoLjs",
+	"version" : "0.0.1",
+	"dependencies" : {
+		"request" : "2.20.0"
+	},
+	"repository" : {
+		"type" : "git",
+		"url" : "https://github.com/codemaster/LoLjs.git"
+	},
+	"main" : "./lol"
+}
