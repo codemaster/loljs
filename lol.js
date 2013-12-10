@@ -155,9 +155,9 @@ function getMasteries(key, region, summoner, cb) {
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
 	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/' + id + '/masteries', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var runes = JSON.parse(data)['pages'];
-			if(cb) cb(null, runes);
-			return runes;
+			var masteries = JSON.parse(data)['pages'];
+			if(cb) cb(null, masteries);
+			return masteries;
 		}
 		return;
 	});
