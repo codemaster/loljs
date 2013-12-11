@@ -39,6 +39,10 @@ var regions = {
 
 var static_cache = {}
 
+function isObject(obj) {
+  return toString.call(obj) === "[object Object]";
+}
+
 function getRegions(cb) {
 	if(cb) cb(null, regions);
 	return regions;
@@ -194,7 +198,7 @@ function getRunes(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + id + '/runes', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var runes = JSON.parse(data)[id.toString()]['pages'];
@@ -210,7 +214,7 @@ function getMasteries(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + id + '/masteries', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var masteries = JSON.parse(data)[id.toString()]['pages'];
@@ -249,7 +253,7 @@ function getTeams(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	request(apiUrl(region, API_VERSIONS['TEAM'] + '/team/by-summoner/' + id, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var teams = JSON.parse(data)[id.toString()];
@@ -265,7 +269,7 @@ function getLeagues(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	request(apiUrl(region, API_VERSIONS['LEAGUE'] + '/league/by-summoner/' + id, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var leagues = []
@@ -285,7 +289,7 @@ function getRecentGames(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	request(apiUrl(region, API_VERSIONS['GAME'] + '/game/by-summoner/' + id + '/recent', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var games = JSON.parse(data)['games'];
@@ -301,7 +305,7 @@ function getRankedStatsForSeason(key, region, season, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	var url = apiUrl(region, API_VERSIONS['STATS'] + '/stats/by-summoner/' + id + '/ranked', key);
 	if(season != undefined) {
 		url = apiUrl(region, API_VERSIONS['STATS'] + '/stats/by-summoner/' + id + '/ranked', key) + '&season=SEASON' + season;
@@ -325,7 +329,7 @@ function getStatsSummaryForSeason(key, region, season, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
 	if(!summoner) return;
-	id = (summoner instanceof Object) ? summoner['id'] : summoner;
+	id = isObject(summoner) ? summoner['id'] : summoner;
 	var url = apiUrl(region, LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key);
 	if(season != undefined) {
 		url = apiUrl(region, LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key) + '&season=SEASON' + season;
