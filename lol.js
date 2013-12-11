@@ -2,7 +2,7 @@ var request = require('request');
 var merge = require('merge');
 var util = require('util');
 
-var ENDPOINT = 'https://%s.api.pvp.net';
+var ENDPOINT = process.env.ENDPOINT || 'https://%s.api.pvp.net';
 var API_VERSIONS = {
 	'CHAMPIONS' : 'v1.2',
 	'SUMMONER' : 'v1.4',

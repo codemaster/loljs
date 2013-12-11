@@ -3,14 +3,21 @@
   "author": "Andrew 'Codemaster' Kane <andrew@andrewmkane.com>",
   "description": "A library for fetching League of Legends data from the Riot API in node.js",
   "url": "https://github.com/codemaster/loljs",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "dependencies": {
     "merge": "^1.2.0",
     "request": "^2.51.0"
   },
+  "devDependencies": {
+    "mocha": "~1.15.1",
+    "express": "~3.4.6"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/codemaster/loljs.git"
+  },
+  "scripts" : {
+    "test" : "mocha"
   },
   "main": "./lol"
 }
