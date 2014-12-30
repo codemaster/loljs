@@ -6,8 +6,11 @@ var RIOT_API_VERSION = 'v2.1';
 
 var ERRORS = {
 	'NO_KEY' : 'A valid API key must be provided to work with this API. Please see https://developer.riotgames.com',
+	'UNAUTHORIZED' : 'Your API key is either invalid or unsupported.',
 	'SERVER_ERROR' : 'There was a server error, please try again or inspect your data for issues.',
+	'UNAVAILABLE' : 'The API is currently unavailable. Please try again later.',
 	'BAD_REQUEST' : 'Your request was invalid. Please check your data for issues.',
+	'RATE_LIMIT' : 'You have hit the rate limit with the provided API Key.',
 	'NOT_FOUND' : 'The summoner requested was not found'
 }
 
@@ -53,17 +56,22 @@ function checkError(err, data, cb) {
 }
 
 function checkResponseStatus(response, data, cb) {
-	if(response.statusCode == 500) {
+	if(response.statusCode == 200) {
+		return true;
+	} else if(response.statusCode == 500) {
 		cb(ERRORS['SERVER_ERROR'], data);
-		return false;
 	} else if(response.statusCode == 400) {
 		cb(ERRORS['BAD_REQUEST'], data);
-		return false;
 	} else if(response.statusCode == 404) {
 		cb(ERRORS['NOT_FOUND'], data);
-		return false;
+	} else if(response.statusCode == 401) {
+		cb(ERRORS['UNAUTHORIZED'], data);
+	} else if(response.statusCode == 429) {
+		cb(ERRORS['RATE_LIMIT'], data);
+	} else if(response.statusCode == 503) {
+		cb(ERRORS['UNAVAILABLE'], data);
 	}
-	return true;
+	return false;
 }
 
 function getChampions(key, region, cb) {
