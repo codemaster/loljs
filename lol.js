@@ -1,8 +1,17 @@
 var request = require('request');
+var merge = require('merge');
+var util = require('util');
 
-var ENDPOINT = 'http://prod.api.pvp.net';
-var LEAGUE_API_VERSION = 'v1.1';
-var RIOT_API_VERSION = 'v2.1';
+var ENDPOINT = 'https://%s.api.pvp.net';
+var API_VERSIONS = {
+	'CHAMPIONS' : 'v1.2',
+	'SUMMONER' : 'v1.4',
+	'GAME' : 'v1.3',
+	'STATS' : 'v1.3',
+	'TEAM' : 'v2.4',
+	'LEAGUE' : 'v2.5',
+	'STATIC' : 'v1.2'
+};
 
 var ERRORS = {
 	'NO_KEY' : 'A valid API key must be provided to work with this API. Please see https://developer.riotgames.com',
@@ -15,21 +24,32 @@ var ERRORS = {
 }
 
 
-regions = {
+var regions = {
 	'na' : 'North America',
 	'euw' : 'Europe West',
 	'eune' : 'Europe Nordic/East',
+	'lan' : 'Latin America North',
+	'las' : 'Latin America South',
+	'oce' : 'Oceania',
+	'kr' : 'Korea',
 	'br' : 'Brazil',
-	'tr' : 'Turkey'
+	'tr' : 'Turkey',
+	'ru' : 'Russia'
 }
+
+var static_cache = {}
 
 function getRegions(cb) {
 	if(cb) cb(null, regions);
 	return regions;
 }
 
-function apiUrl(uri, key) {
-	return ENDPOINT + uri + '?api_key=' + key;
+function apiUrl(region, uri, key) {
+	return util.format(ENDPOINT, region) + '/api/lol/' + region + '/' + uri + '?api_key=' + key;
+}
+
+function apiStaticUrl(region, uri, key) {
+	return util.format(ENDPOINT, region) + '/api/lol/static-data/' + region + '/' + uri + '?api_key=' + key;
 }
 
 function checkKey(key, cb) {
@@ -77,11 +97,39 @@ function checkResponseStatus(response, data, cb) {
 function getChampions(key, region, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/champion', key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['CHAMPIONS'] + '/champion', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var champions = JSON.parse(data)['champions'];
-			if(cb) cb(null, champions);
-			return champions;
+			var champs = JSON.parse(data)['champions'];
+			var champions = {};
+			Object.keys(champs).forEach(function(item, key, _array) {
+				var champ_id = parseInt(champs[item]['id']);
+				champions[champ_id] = champs[item];
+			});
+			var match_champ_data = function(champ_data, champions) {
+				Object.keys(champ_data).forEach(function(item) {
+					var champ_id = parseInt(champ_data[item]['id']);
+					champions[champ_id] = merge(champions[champ_id], champ_data[item]);
+				});
+				var champ_array = [];
+				Object.keys(champions).forEach(function(key) {
+					champ_array[key] = champions[key];
+				});
+				return champ_array;
+			};
+			var champ_static_url = apiStaticUrl(region, API_VERSIONS['STATIC'] + '/champion', key);
+			if(champ_static_url in static_cache) {
+				champions = match_champ_data(static_cache[champ_static_url], champions);
+				if(cb) cb(null, champions);
+				return champions;
+			} else {
+				request(champ_static_url, function(err, response, data) {
+					var champ_data = JSON.parse(data)['data'];
+					static_cache[champ_static_url] = champ_data;
+					champions = match_champ_data(champ_data, champions);
+					if(cb) cb(null, champions);
+					return champions;
+				});
+			}
 		}
 		return;
 	});
@@ -100,9 +148,9 @@ function getSummoner(key, region, data, cb) {
 function getSummonerByName(key, region, name, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/by-name/' + name, key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/by-name/' + name, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var summoner = JSON.parse(data);
+			var summoner = JSON.parse(data)[name.toLowerCase()];
 			if(cb) cb(null, summoner);
 			return summoner;
 		}
@@ -114,9 +162,9 @@ function getSummonerByName(key, region, name, cb) {
 function getSummonerById(key, region, id, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/' + id, key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + id, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var summoner = JSON.parse(data);
+			var summoner = JSON.parse(data)[id.toString()];
 			if(cb) cb(null, summoner);
 			return summoner;
 		}
@@ -131,7 +179,7 @@ function getSummonerNamesFromIds(key, region, ids, cb) {
 	if(Array.isArray(ids)) {
 		ids = ids.toString()
 	}
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/' + ids + '/name', key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + ids + '/name', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var summoners = JSON.parse(data)['summoners'];
 			if(cb) cb(null, summoners);
@@ -145,10 +193,11 @@ function getSummonerNamesFromIds(key, region, ids, cb) {
 function getRunes(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/' + id + '/runes', key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + id + '/runes', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var runes = JSON.parse(data)['pages'];
+			var runes = JSON.parse(data)[id.toString()]['pages'];
 			if(cb) cb(null, runes);
 			return runes;
 		}
@@ -160,12 +209,36 @@ function getRunes(key, region, summoner, cb) {
 function getMasteries(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/summoner/' + id + '/masteries', key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['SUMMONER'] + '/summoner/' + id + '/masteries', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var masteries = JSON.parse(data)['pages'];
-			if(cb) cb(null, masteries);
-			return masteries;
+			var masteries = JSON.parse(data)[id.toString()]['pages'];
+			var masteries_static_url = apiStaticUrl(region, API_VERSIONS['STATIC'] + '/mastery', key);
+			var mastery_merge = function(masteries, mastery_data) {
+				for(var m = 0; m < masteries.length; ++m) {
+					if(masteries[m].masteries) {
+						for(var i = 0; i < masteries[m].masteries.length; ++i) {
+							masteries[m].masteries[i].name = mastery_data[masteries[m].masteries[i].id].name;
+							masteries[m].masteries[i].description = mastery_data[masteries[m].masteries[i].id].description[masteries[m].masteries[i].rank];
+						}
+					}
+				}
+			};
+			if(masteries_static_url in static_cache) {
+				var masteries_data = static_cache[masteries_static_url];
+				mastery_merge(masteries, masteries_data);
+				if(cb) cb(null, masteries);
+				return masteries;
+			} else {
+				request(masteries_static_url, function(err, response, data) {
+					var masteries_data = JSON.parse(data)['data'];
+					static_cache[masteries_static_url] = masteries_data;
+					mastery_merge(masteries, masteries_data);
+					if(cb) cb(null, masteries);
+					return masteries;
+				});
+			}
 		}
 		return;
 	});
@@ -175,10 +248,11 @@ function getMasteries(key, region, summoner, cb) {
 function getTeams(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	request(apiUrl('/api/' + region + '/' + RIOT_API_VERSION + '/team/by-summoner/' + id, key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['TEAM'] + '/team/by-summoner/' + id, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
-			var teams = JSON.parse(data);
+			var teams = JSON.parse(data)[id.toString()];
 			if(cb) cb(null, teams);
 			return teams;
 		}
@@ -190,8 +264,9 @@ function getTeams(key, region, summoner, cb) {
 function getLeagues(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	request(apiUrl('/api/' + region + '/' + RIOT_API_VERSION + '/league/by-summoner/' + id, key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['LEAGUE'] + '/league/by-summoner/' + id, key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var leagues = []
 			var league_data = JSON.parse(data);
@@ -209,8 +284,9 @@ function getLeagues(key, region, summoner, cb) {
 function getRecentGames(key, region, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	request(apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/game/by-summoner/' + id + '/recent', key), function(err, response, data) {
+	request(apiUrl(region, API_VERSIONS['GAME'] + '/game/by-summoner/' + id + '/recent', key), function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
 			var games = JSON.parse(data)['games'];
 			if(cb) cb(null, games);
@@ -224,10 +300,11 @@ function getRecentGames(key, region, summoner, cb) {
 function getRankedStatsForSeason(key, region, season, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	var url = apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/ranked', key);
+	var url = apiUrl(region, API_VERSIONS['STATS'] + '/stats/by-summoner/' + id + '/ranked', key);
 	if(season != undefined) {
-		url = apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/ranked', key) + '&season=SEASON' + season;
+		url = apiUrl(region, API_VERSIONS['STATS'] + '/stats/by-summoner/' + id + '/ranked', key) + '&season=SEASON' + season;
 	}
 	request(url, function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
@@ -247,10 +324,11 @@ function getRankedStats(key, region, summoner, cb) {
 function getStatsSummaryForSeason(key, region, season, summoner, cb) {
 	if(!region) region = 'na';
 	if(!checkKey(key, cb)) return;
+	if(!summoner) return;
 	id = (summoner instanceof Object) ? summoner['id'] : summoner;
-	var url = apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key);
+	var url = apiUrl(region, LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key);
 	if(season != undefined) {
-		url = apiUrl('/api/lol/' + region + '/' + LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key) + '&season=SEASON' + season;
+		url = apiUrl(region, LEAGUE_API_VERSION + '/stats/by-summoner/' + id + '/summary', key) + '&season=SEASON' + season;
 	}
 	request(url, function(err, response, data) {
 		if(checkError(err, data, cb) && checkResponseStatus(response, data, cb)) {
